@@ -1,4 +1,8 @@
 /target
 *.jpg
+*.jpeg
 *.png
+*.pdf
+*.bmp
+
 *.pdf
