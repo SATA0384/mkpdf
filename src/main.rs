@@ -1,4 +1,4 @@
-use anyhow::{Error, Ok, Result};
+use anyhow::Result;
 use image::{io::Reader as ImageReader, DynamicImage};
 use jpeg_to_pdf::JpegToPdf;
 use std::{
