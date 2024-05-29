@@ -14,9 +14,10 @@ fn main() -> Result<()> {
 
   // Quit if no enough args
   if args.len() < 3 {
-    return Err(Error::msg(
-      "Usage: mkpdf <outfile>.pdf <source1>.jpg [<source2>.jpg ...]",
-    ));
+    eprintln!("Usage: mkpdf <outfile> <source1> [<source2>...]");
+    eprintln!("       <outfile> : if not *.pdf, automatically append '.pdf'");
+    eprintln!("       <sources> : Supported formats are [.jpg|.png|.bmp]");
+    return Ok(());
   }
 
   let mut out_file_name = args[1].clone();
