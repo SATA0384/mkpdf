@@ -30,9 +30,10 @@ fn print_help() {
 }
 
 fn print_usage() {
-  println!("Usage: mkpdf <output_file> <input_image1> [<input_image2>...]");
-  println!("  <output_file> : if not *.pdf, automatically append '.pdf'");
-  println!("  <input_image> : Supported formats are [.jpg(.jpeg)|.png|.bmp]");
+  println!("Usage: mkpdf [<--options|-o>] <output_file> <input_image1> [<input_image2>...]");
+  println!("  <--options|-o> : Options. Try 'mkpdf -h' to see verbosely.");
+  println!("  <output_file>  : if not *.pdf, automatically append '.pdf'");
+  println!("  <input_image>  : Supported formats are [.jpg(.jpeg)|.png|.bmp]");
 }
 
 #[derive(Debug, PartialEq, Eq)]
