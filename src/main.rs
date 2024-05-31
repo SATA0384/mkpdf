@@ -1,162 +1,158 @@
 use anyhow::{Error, Result};
-use image::{io::Reader as ImageReader, DynamicImage};
+use image::io::Reader as ImageReader;
 use jpeg_to_pdf::JpegToPdf;
 use regex::Regex;
 use std::{
   ffi::OsStr,
-  fmt::Display,
   fs::{self, File},
-  io::{BufWriter, Cursor},
+  io::BufWriter,
   path::Path,
 };
 
-const SELF_VERSION: &str = env!("CARGO_PKG_VERSION");
-const IS_DEBUG: bool = false;
+mod my_image;
+use my_image::{convert_to_jpeg, debug::debug_print, resize_image, ResizeInfo, ResizeMode};
 
-fn print_help() {
-  print!("mkpdf - ");
-  print_version();
-  print_usage();
-
-  println!("\nDescription: Create PDF file from multiple images.\n");
-
-  println!("Options:");
-  println!("  --help    | -h ) Print this help message and exit.");
-  println!("  --resize <mode> ) Resize images and add to PDF.");
-  println!("        -r <mode> ) <mode>: <width>x<height> ) Resize to specified size.");
-  // println!("                          : min ) Resize to fit the smallest one.");
-  // println!("                          : max ) Resize to fit the leargest one.");
-  println!("  --version | -v ) Print version and exit.");
-}
-
-fn print_usage() {
-  println!("Usage: mkpdf [<--options|-o>] <output_file> <input_image1> [<input_image2>...]");
-  println!("  <--options|-o> : Options. Try 'mkpdf -h' to see verbosely.");
-  println!("  <output_file>  : if not *.pdf, automatically append '.pdf'");
-  println!("  <input_image>  : Supported formats are [.jpg(.jpeg)|.png|.bmp]");
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum ResizeMode {
-  Original,
-  Custom,
-  Min,
-  Max,
-}
-#[derive(Debug)]
-struct ResizeInfo {
-  mode: ResizeMode,
-  // resolution: Option<(u32, u32)>,
-  new_resolution: Option<(u32, u32)>,
-}
+mod mkpdf_docs;
+use mkpdf_docs as docs;
 
 fn main() -> Result<()> {
   let mut resize_info = ResizeInfo {
     mode: ResizeMode::Original,
-    // resolution: None,
     new_resolution: None,
   };
 
-  // 引数の取得
-  let args = {
-    // オプション含むシェル引数を取得
-    let raw_args: Vec<String> = std::env::args().collect();
-
-    // オプション解析
-    let pat_short_opt = Regex::new(r"^-[0-9|a-z|A-Z]").unwrap();
-    let pat_long_opt = Regex::new(r"^--[0-9|a-z|A-Z]").unwrap();
-    let mut non_option_args = Vec::new();
-    let mut is_resize_mode = false;
-
-    for arg in raw_args {
-      if is_resize_mode {
-        let pat_resolution = Regex::new("^[1-9][0-9]{2}[0-9]?x[1-9][0-9]{2}[0-9]?$").unwrap();
-        resize_info.mode = match arg.as_str() {
-          "min" => ResizeMode::Min,
-          "max" => ResizeMode::Max,
-          _ => {
-            if pat_resolution.is_match(&arg) {
-              let res: Vec<u32> = arg.split('x').map(|x| x.parse().unwrap()).collect();
-              resize_info.new_resolution = Some((res[0], res[1]));
-              ResizeMode::Custom
-            } else {
-              return Err(Error::msg(format!("Invalid resolution: {}", arg)));
-            }
-          }
-        };
-        continue;
-      }
-
-      if pat_short_opt.is_match(&arg) {
-        // ショートオプションなら
-        let opts = arg[1..].chars();
-        // println!("{opts:?}");
-
-        // 一文字ずつ解析(e.g. -ab -> -a -b)
-        for opt in opts {
-          match opt {
-            'h' => {
-              print_help();
-              return Ok(());
-            }
-            'v' => {
-              print_version();
-              return Ok(());
-            }
-            'r' => {
-              is_resize_mode = true;
-              continue;
-            }
-            _ => println!("Invalid option: -{opt}"),
-          }
-        }
-      } else if pat_long_opt.is_match(&arg) {
-        // ロングオプションなら
-        match arg.as_str() {
-          "--help" => {
-            print_help();
-            return Ok(());
-          }
-          "--version" => {
-            print_version();
-            return Ok(());
-          }
-          "--resize" => {
-            is_resize_mode = true;
-            continue;
-          }
-          _ => println!("Invalid option: {arg}"),
-        }
-      } else {
-        // オプションまたはその引数でない引数(純粋な引数)を抽出
-        non_option_args.push(arg);
-      }
-    }
-
-    // 純粋な引数を引数として扱う
-    non_option_args
+  // オプション解析と引数の取得
+  let mut args = match option_handling(&mut resize_info) {
+    Ok(args) => match args {
+      Some(args) => args,
+      None => return Ok(()),
+    },
+    Err(e) => return Err(e),
   };
   debug_print(format!("{args:?}"));
   // debug_print(format!("{:?}", &resize_info));
 
   // 引数の数が不足していたら終了
   if args.len() < 3 {
-    print_usage();
+    docs::print_usage();
     return Ok(());
   }
 
   // 出力先ファイルのbasenameを取得
-  let output_file_name = if args[1].ends_with(".pdf") {
-    // Trim ".pdf" from out file name
-    args[1].trim_end_matches(".pdf").to_string()
+  let output_file_path = if args[1].ends_with(".pdf") {
+    Path::new(&args[1])
   } else {
-    args[1].clone()
+    Path::new({
+      args[1].push_str(".pdf");
+      &args[1]
+    })
   };
 
   let input_images = &args[2..];
 
+  // 出力先ファイルと同名のファイルがあったら終了
+  if output_file_path.exists() {
+    return Err(Error::msg(format!(
+      "File '{}' is already exists.",
+      output_file_path.to_str().unwrap()
+    )));
+  }
+
+  // PDFを出力
+  if let Err(e) = create_pdf(output_file_path, input_images, resize_info) {
+    fs::remove_file(output_file_path)?;
+    return Err(e);
+  }
+
+  Ok(())
+}
+
+// 非オプション引数を返す
+fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, Error> {
+  // オプション含むシェル引数を取得
+  let raw_args: Vec<String> = std::env::args().collect();
+
+  // オプション解析
+  let pat_short_opt = Regex::new(r"^-[0-9|a-z|A-Z]").unwrap();
+  let pat_long_opt = Regex::new(r"^--[0-9|a-z|A-Z]").unwrap();
+  let mut non_option_args = Vec::new();
+  let mut is_resize_mode = false;
+
+  for arg in raw_args {
+    if is_resize_mode {
+      let pat_resolution = Regex::new("^[1-9][0-9]{2}[0-9]?x[1-9][0-9]{2}[0-9]?$").unwrap();
+      resize_info.mode = match arg.as_str() {
+        "min" => ResizeMode::Min,
+        "max" => ResizeMode::Max,
+        _ => {
+          if pat_resolution.is_match(&arg) {
+            let res: Vec<u32> = arg.split('x').map(|x| x.parse().unwrap()).collect();
+            resize_info.new_resolution = Some((res[0], res[1]));
+            ResizeMode::Custom
+          } else {
+            return Err(Error::msg(format!("Invalid resolution: {}", arg)));
+          }
+        }
+      };
+      continue;
+    }
+
+    if pat_short_opt.is_match(&arg) {
+      // ショートオプションなら
+      let opts = arg[1..].chars();
+
+      // 一文字ずつ解析(e.g. -ab -> -a -b)
+      for opt in opts {
+        match opt {
+          'h' => {
+            docs::print_help();
+            return Ok(None);
+          }
+          'v' => {
+            docs::print_version();
+            return Ok(None);
+          }
+          'r' => {
+            is_resize_mode = true;
+            continue;
+          }
+          _ => println!("Invalid option: -{opt}"),
+        }
+      }
+    } else if pat_long_opt.is_match(&arg) {
+      // ロングオプションなら
+      match arg.as_str() {
+        "--help" => {
+          docs::print_help();
+          return Ok(None);
+        }
+        "--version" => {
+          docs::print_version();
+          return Ok(None);
+        }
+        "--resize" => {
+          is_resize_mode = true;
+          continue;
+        }
+        _ => println!("Invalid option: {arg}"),
+      }
+    } else {
+      // オプションまたはその引数でない引数(純粋な引数)を抽出
+      non_option_args.push(arg);
+    }
+  }
+
+  // 純粋な引数を引数として扱う
+  Ok(Some(non_option_args))
+}
+
+fn create_pdf(
+  output_file_path: &Path,
+  input_images: &[String],
+  resize_info: ResizeInfo,
+) -> Result<()> {
   // 出力先ファイルの作成 - 同名ファイルが存在する場合は終了
-  let output_file = File::create_new(output_file_name.clone() + ".pdf")?;
+  let output_file = File::create_new(output_file_path)?;
 
   // PDFオブジェクトの作成
   let mut pdf = JpegToPdf::new();
@@ -171,7 +167,7 @@ fn main() -> Result<()> {
     // 入力画像のパスをStringからPathに変換
     let input_image_path = Path::new(&input_image_path);
 
-    // TODO: リサイズしないならjpgはfs::read -> Vec<u8>で読み込んだほうが遥かに高速なので分岐したい
+    // リサイズしないならjpgはfs::readで直接Vec<u8>として読み込んだほうが遥かに高速なので分岐
     let jpeg_image = if resize_info.mode.eq(&ResizeMode::Original) {
       // リサイズなし
 
@@ -201,63 +197,17 @@ fn main() -> Result<()> {
     debug_print(format!("File added: {input_image_path:?}"));
   }
 
+  // 文書タイトルをPDFのファイル名にセット
+  let title = match output_file_path.file_name() {
+    Some(basename) => basename.to_str().unwrap().trim_end_matches(".pdf"),
+    None => "Document",
+  };
+
   // PDFオブジェクトをファイルに出力
-  match pdf
+  pdf
     .strip_exif(true)
-    .set_document_title(output_file_name)
-    .create_pdf(&mut BufWriter::new(output_file))
-  {
-    Ok(_) => {}
-    Err(e) => eprintln!("Failed to create PDF: {e}"),
-  }
+    .set_document_title(title)
+    .create_pdf(&mut BufWriter::new(output_file))?;
 
   Ok(())
-}
-
-fn print_version() {
-  println!("{SELF_VERSION}");
-}
-
-fn debug_print(msg: impl Display) {
-  if IS_DEBUG {
-    eprintln!("{msg}");
-  }
-}
-
-// 画像フォーマットの変換
-fn convert_to_jpeg(image: DynamicImage) -> Result<Vec<u8>> {
-  debug_print("Converting to jpeg...");
-  // jpeg用のバッファを用意
-  let mut jpeg_buf = Vec::new();
-  let mut seekable_jpeg_buf = &mut Cursor::new(&mut jpeg_buf);
-
-  // バッファにjpeg形式で書き込み
-  image
-    .into_rgb8()
-    .write_to(&mut seekable_jpeg_buf, image::ImageFormat::Jpeg)?;
-
-  Ok(jpeg_buf)
-}
-
-// 画像のリサイズ
-fn resize_image(image: DynamicImage, r_info: &ResizeInfo) -> Result<DynamicImage> {
-  debug_print(format!("{r_info:?}"));
-
-  match r_info.mode {
-    // 変換なしの場合
-    ResizeMode::Original => return Ok(image),
-    ResizeMode::Custom => {
-      // 新しい解像度を取得
-      let (nwidth, nheight) = r_info.new_resolution.unwrap();
-
-      // リサイズ
-      let resized_image = image.resize(nwidth, nheight, image::imageops::FilterType::Triangle);
-      return Ok(resized_image);
-    }
-    ResizeMode::Min => {}
-    ResizeMode::Max => {}
-  }
-
-  let message = format!("resize_image(): Modes {:?} not implemented.", r_info.mode);
-  Err(Error::msg(message))
 }
