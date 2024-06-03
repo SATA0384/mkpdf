@@ -1,4 +1,9 @@
 use anyhow::{Error, Result};
+#[allow(unused_imports)]
+use debug_print::{
+  debug_eprint as deprint, debug_eprintln as deprintln, debug_print as dprint,
+  debug_println as dprintln,
+};
 use image::io::Reader as ImageReader;
 use jpeg_to_pdf::JpegToPdf;
 use regex::Regex;
@@ -8,8 +13,7 @@ use std::{
   path::Path,
 };
 
-mod my_image;
-use my_image::{convert_to_jpeg, debug::debug_print, ResizeInfo, ResizeMode};
+use my_image::{convert_to_jpeg, ResizeInfo, ResizeMode};
 
 mod mkpdf_docs;
 use mkpdf_docs as docs;
@@ -25,8 +29,8 @@ fn main() -> Result<()> {
     },
     Err(e) => return Err(e),
   };
-  debug_print(format!("{args:?}"));
-  // debug_print(format!("{:?}", &resize_info));
+  dprintln!("{args:?}");
+  // dprintln!(format!("{:?}", &resize_info));
 
   // 引数の数が不足していたら終了
   if args.len() < 3 {
@@ -163,7 +167,9 @@ fn create_pdf(
   let mut images = {
     let mut images = Vec::new();
     for input_image in input_images {
+      dprint!("Opening image: {input_image}");
       let image = ImageReader::open(input_image)?.decode()?;
+      dprintln!(" - Done.");
       images.push(image);
     }
     images
@@ -175,7 +181,6 @@ fn create_pdf(
   // 画像をページとしてPDFオブジェクトに追加
   for image in images {
     pdf = pdf.add_image(convert_to_jpeg(image)?);
-    // debug_print(format!("File added: {input_image_path:?}"));
   }
 
   // 文書タイトルをPDFのファイル名にセット
