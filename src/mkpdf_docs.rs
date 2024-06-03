@@ -9,8 +9,8 @@ pub(crate) fn print_help() {
   println!("  --help    | -h ) Print this help message and exit.");
   println!("  --resize <mode> ) Resize images. (Keeps aspect ratio)");
   println!("        -r <mode> ) <mode>: <width>x<height> ) Resize to specified size.");
-  // println!("                          : min ) Resize to fit the smallest one.");
-  // println!("                          : max ) Resize to fit the leargest one.");
+  println!("                          : min ) Resize to fit the smallest one.");
+  println!("                          : max ) Resize to fit the leargest one.");
   println!("  --version | -v ) Print version and exit.");
 }
 

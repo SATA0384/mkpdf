@@ -3,23 +3,19 @@ use image::io::Reader as ImageReader;
 use jpeg_to_pdf::JpegToPdf;
 use regex::Regex;
 use std::{
-  ffi::OsStr,
   fs::{self, File},
   io::BufWriter,
   path::Path,
 };
 
 mod my_image;
-use my_image::{convert_to_jpeg, debug::debug_print, resize_image, ResizeInfo, ResizeMode};
+use my_image::{convert_to_jpeg, debug::debug_print, ResizeInfo, ResizeMode};
 
 mod mkpdf_docs;
 use mkpdf_docs as docs;
 
 fn main() -> Result<()> {
-  let mut resize_info = ResizeInfo {
-    mode: ResizeMode::Original,
-    new_resolution: None,
-  };
+  let mut resize_info = ResizeInfo::new(ResizeMode::Original, None)?;
 
   // オプション解析と引数の取得
   let mut args = match option_handling(&mut resize_info) {
@@ -81,19 +77,21 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, 
   for arg in raw_args {
     if is_resize_mode {
       let pat_resolution = Regex::new("^[1-9][0-9]{2}[0-9]?x[1-9][0-9]{2}[0-9]?$").unwrap();
-      resize_info.mode = match arg.as_str() {
+      let mode = match arg.as_str() {
         "min" => ResizeMode::Min,
         "max" => ResizeMode::Max,
         _ => {
           if pat_resolution.is_match(&arg) {
             let res: Vec<u32> = arg.split('x').map(|x| x.parse().unwrap()).collect();
-            resize_info.new_resolution = Some((res[0], res[1]));
+            resize_info.set_resoluton(Some((res[0], res[1])))?;
             ResizeMode::Custom
           } else {
             return Err(Error::msg(format!("Invalid resolution: {}", arg)));
           }
         }
       };
+
+      resize_info.set_mode(mode);
       continue;
     }
 
@@ -116,7 +114,9 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, 
             is_resize_mode = true;
             continue;
           }
-          _ => println!("Invalid option: -{opt}"),
+          _ => {
+            return Err(Error::msg(format!("Invalid option: -{opt}")));
+          }
         }
       }
     } else if pat_long_opt.is_match(&arg) {
@@ -134,7 +134,9 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, 
           is_resize_mode = true;
           continue;
         }
-        _ => println!("Invalid option: {arg}"),
+        _ => {
+          return Err(Error::msg(format!("Invalid option: {arg}")));
+        }
       }
     } else {
       // オプションまたはその引数でない引数(純粋な引数)を抽出
@@ -157,44 +159,23 @@ fn create_pdf(
   // PDFオブジェクトの作成
   let mut pdf = JpegToPdf::new();
 
-  // jpegフォーマットか判定するクロージャ
-  let is_jpeg = |path: &Path| {
-    path.extension() == Some(OsStr::new("jpg")) || path.extension() == Some(OsStr::new("jpeg"))
+  // 画像を一括で読み込み
+  let mut images = {
+    let mut images = Vec::new();
+    for input_image in input_images {
+      let image = ImageReader::open(input_image)?.decode()?;
+      images.push(image);
+    }
+    images
   };
 
-  // PDFオブジェクトにページ(画像)を追加
-  for input_image_path in input_images {
-    // 入力画像のパスをStringからPathに変換
-    let input_image_path = Path::new(&input_image_path);
+  // リサイズ
+  images = resize_info.resize_all(images);
 
-    // リサイズしないならjpgはfs::readで直接Vec<u8>として読み込んだほうが遥かに高速なので分岐
-    let jpeg_image = if resize_info.mode.eq(&ResizeMode::Original) {
-      // リサイズなし
-
-      if is_jpeg(&input_image_path) {
-        // 入力画像がjpegファイル
-        fs::read(input_image_path)?
-      } else {
-        // 入力画像がjpeg以外のファイル(要変換)
-        let image = ImageReader::open(input_image_path)?.decode()?;
-        convert_to_jpeg(image)?
-      }
-    } else {
-      // リサイズあり
-
-      // 入力画像をDynamicImage形式で読み込み
-      let mut image = ImageReader::open(input_image_path)?.decode()?;
-
-      // 画像をリサイズ
-      image = resize_image(image, &resize_info)?;
-
-      // 画像をjpegフォーマットに変換
-      convert_to_jpeg(image)?
-    };
-
-    // 画像をページとしてPDFオブジェクトに追加
-    pdf = pdf.add_image(jpeg_image);
-    debug_print(format!("File added: {input_image_path:?}"));
+  // 画像をページとしてPDFオブジェクトに追加
+  for image in images {
+    pdf = pdf.add_image(convert_to_jpeg(image)?);
+    // debug_print(format!("File added: {input_image_path:?}"));
   }
 
   // 文書タイトルをPDFのファイル名にセット
