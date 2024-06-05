@@ -18,7 +18,7 @@ pub(crate) fn print_usage() {
   println!("Usage: mkpdf [<--options|-o>] <output_file> <input_image1> [<input_image2>...]");
   println!("  <--options|-o> : Options. Try 'mkpdf -h' to see verbosely.");
   println!("  <output_file>  : if not *.pdf, automatically append '.pdf'");
-  println!("  <input_image>  : Supported formats are [.jpg(.jpeg)|.png|.bmp]");
+  println!("  <input_image>  : Supported formats are [JPEG|PNG|BMP|WEBP]");
 }
 
 const SELF_VERSION: &str = env!("CARGO_PKG_VERSION");
