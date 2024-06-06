@@ -5,20 +5,32 @@ pub(crate) fn print_help() {
 
   println!("\nDescription: Create PDF file from multiple images.\n");
 
+  println!("Supported formats:");
+  println!("  AVIF, BMP, GIF, ICO, JPEG, PNG, TIFF, WebP,");
+  println!("  DDS, EXR, Farbfeld, HDR, PNM, QOI, TGA\n");
+
   println!("Options:");
+  println!("  --resize <size> | -r <size> ) Resize images. (Keeps aspect ratio)");
+  println!("      <size>: <w>x<h> ) Resize to specified size.(<w>: Width, <h>: Height)");
+  println!("      <size>: min     ) Resize to fit the smallest one.");
+  println!("      <size>: max     ) Resize to fit the leargest one.\n");
+
+  println!("  --resize-filter <mode> ) Specify resize filter");
+  println!("      <mode>: nearest  ) Nearest filter. Fast but low quality.");
+  println!("      <mode>: linear   ) Linear filter. Mid-fast and good quality. (Default)");
+  println!("      <mode>: cubic    ) Cubic filter. Little-slow but better quality.");
+  println!("      <mode>: lanczos  ) Lanczos filter (3 windows). Slow but best quality.");
+  println!("      <mode>: gaussian ) Gaussian filter. Slow but smooth. (Looks a little blurred)\n");
+
   println!("  --help    | -h ) Print this help message and exit.");
-  println!("  --resize <mode> ) Resize images. (Keeps aspect ratio)");
-  println!("        -r <mode> ) <mode>: <width>x<height> ) Resize to specified size.");
-  println!("                          : min ) Resize to fit the smallest one.");
-  println!("                          : max ) Resize to fit the leargest one.");
   println!("  --version | -v ) Print version and exit.");
 }
 
 pub(crate) fn print_usage() {
   println!("Usage: mkpdf [<--options|-o>] <output_file> <input_image1> [<input_image2>...]");
-  println!("  <--options|-o> : Options. Try 'mkpdf -h' to see verbosely.");
-  println!("  <output_file>  : if not *.pdf, automatically append '.pdf'");
-  println!("  <input_image>  : Supported formats are [JPEG|PNG|BMP|WEBP]");
+  println!("  <--options|-o> : Options. Try `mkpdf -h` to see verbosely.");
+  println!("  <output_file>  : if not *.pdf, automatically append \".pdf\"");
+  println!("  <input_image>  : You can see supported formats with `mkpdf -h`");
 }
 
 const SELF_VERSION: &str = env!("CARGO_PKG_VERSION");

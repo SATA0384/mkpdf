@@ -789,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "mkpdf"
-version = "0.3.5"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "debug_print",
@@ -807,7 +807,7 @@ checksum = "16cf681a23b4d0a43fc35024c176437f9dcd818db34e0f42ab456a0ee5ad497b"
 
 [[package]]
 name = "my_image"
-version = "0.1.1"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "debug_print",

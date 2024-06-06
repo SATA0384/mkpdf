@@ -1,10 +1,10 @@
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Result};
 #[allow(unused_imports)]
 use debug_print::{
   debug_eprint as deprint, debug_eprintln as deprintln, debug_print as dprint,
   debug_println as dprintln,
 };
-use image::io::Reader as ImageReader;
+use image::{imageops::FilterType, io::Reader as ImageReader};
 use jpeg_to_pdf::JpegToPdf;
 use regex::Regex;
 use std::{
@@ -19,7 +19,7 @@ mod mkpdf_docs;
 use mkpdf_docs as docs;
 
 fn main() -> Result<()> {
-  let mut resize_info = ResizeInfo::new(ResizeMode::Original, None)?;
+  let mut resize_info = ResizeInfo::new(ResizeMode::Original, None, None)?;
 
   // オプション解析と引数の取得
   let mut args = match option_handling(&mut resize_info) {
@@ -52,10 +52,10 @@ fn main() -> Result<()> {
 
   // 出力先ファイルと同名のファイルがあったら終了
   if output_file_path.exists() {
-    return Err(Error::msg(format!(
+    return Err(anyhow!(
       "File '{}' is already exists.",
       output_file_path.to_str().unwrap()
-    )));
+    ));
   }
 
   // PDFを出力
@@ -67,8 +67,8 @@ fn main() -> Result<()> {
   Ok(())
 }
 
-// 非オプション引数を返す
-fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, Error> {
+// オプションを解析し、非オプション引数を返す
+fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>> {
   // オプション含むシェル引数を取得
   let raw_args: Vec<String> = std::env::args().collect();
 
@@ -77,9 +77,13 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, 
   let pat_long_opt = Regex::new(r"^--[0-9|a-z|A-Z]").unwrap();
   let mut non_option_args = Vec::new();
   let mut is_resize_mode = false;
+  let mut is_resize_filter_mode = false;
 
   for arg in raw_args {
+    /* オプション引数を取得 */
     if is_resize_mode {
+      // -r,--resize: リサイズモード
+
       let pat_resolution = Regex::new("^[1-9][0-9]{2}[0-9]?x[1-9][0-9]{2}[0-9]?$").unwrap();
       let mode = match arg.as_str() {
         "min" => ResizeMode::Min,
@@ -90,15 +94,34 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, 
             resize_info.set_resoluton(Some((res[0], res[1])))?;
             ResizeMode::Custom
           } else {
-            return Err(Error::msg(format!("Invalid resolution: {}", arg)));
+            return Err(anyhow!("Invalid resolution: {}", arg));
           }
         }
       };
 
       resize_info.set_mode(mode);
+      is_resize_mode = false;
+      continue;
+    } else if is_resize_filter_mode {
+      // --resize_filter_mode: リサイズ時のフィルターモード
+
+      let filter = match arg.as_str() {
+        "nearest" | "low" | "fast" => FilterType::Nearest,
+        "linear" | "good" | "triangle" => FilterType::Triangle,
+        "lanczos" | "best" | "slow" => FilterType::Lanczos3,
+        "cubic" | "better" | "catmullrom" => FilterType::CatmullRom,
+        "gaussian" | "blur" => FilterType::Gaussian,
+        _ => {
+          return Err(anyhow!("Invalid resize filter: {}", arg));
+        }
+      };
+
+      resize_info.set_filter(Some(filter));
+      is_resize_filter_mode = false;
       continue;
     }
 
+    /* オプションを取得 */
     if pat_short_opt.is_match(&arg) {
       // ショートオプションなら
       let opts = arg[1..].chars();
@@ -119,7 +142,7 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, 
             continue;
           }
           _ => {
-            return Err(Error::msg(format!("Invalid option: -{opt}")));
+            return Err(anyhow!("Invalid option: -{opt}"));
           }
         }
       }
@@ -138,8 +161,12 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>, 
           is_resize_mode = true;
           continue;
         }
+        "--resize-filter" => {
+          is_resize_filter_mode = true;
+          continue;
+        }
         _ => {
-          return Err(Error::msg(format!("Invalid option: {arg}")));
+          return Err(anyhow!("Invalid option: {arg}"));
         }
       }
     } else {
