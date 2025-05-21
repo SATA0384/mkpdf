@@ -4,7 +4,7 @@ use debug_print::{
   debug_eprint as deprint, debug_eprintln as deprintln, debug_print as dprint,
   debug_println as dprintln,
 };
-use image::{imageops::FilterType, io::Reader as ImageReader};
+use image::{imageops::FilterType, ImageReader};
 use jpeg_to_pdf::JpegToPdf;
 use regex::Regex;
 use std::{
@@ -13,7 +13,8 @@ use std::{
   path::Path,
 };
 
-use my_image::{convert_to_jpeg, ResizeInfo, ResizeMode};
+mod mkpdf_image;
+use mkpdf_image::{convert_to_jpeg, ResizeInfo, ResizeMode};
 
 mod mkpdf_docs;
 use mkpdf_docs as docs;
