@@ -4,7 +4,7 @@
 
 ## 機能 - Function
   幅広い形式の画像ファイルを一括で読み込み、リサイズして出力することができます。<br>
-  文書や学習ノートなどのデジタル化を簡単にします。<br>
+  文書や学習ノートなどを写真として撮り、簡単にPDF化できます。<br>
   Loads image files of various formats in bulk, resize, and outputs.<br>
   Easily desitize your documents, study notes, and more.
 
