@@ -30,8 +30,8 @@ fn main() -> Result<()> {
     },
     Err(e) => return Err(e),
   };
-  dprintln!("{args:?}");
-  // dprintln!(format!("{:?}", &resize_info));
+  dprintln!("args = {:?}", args);
+  dprintln!("resize_info = {:#?}", &resize_info);
 
   // 引数の数が不足していたら終了
   if args.len() < 3 {
@@ -39,15 +39,14 @@ fn main() -> Result<()> {
     return Ok(());
   }
 
-  // 出力先ファイルのbasenameを取得
-  let output_file_path = if args[1].ends_with(".pdf") {
-    Path::new(&args[1])
-  } else {
-    Path::new({
+  // 出力先ファイルパスを取得
+  let output_file_path = Path::new({
+    // .pdf拡張子がついていなければ付加
+    if !args[1].ends_with(".pdf") {
       args[1].push_str(".pdf");
-      &args[1]
-    })
-  };
+    }
+    &args[1]
+  });
 
   let input_images = &args[2..];
 
@@ -90,8 +89,9 @@ fn option_handling(resize_info: &mut ResizeInfo) -> Result<Option<Vec<String>>> 
         "min" => ResizeMode::Min,
         "max" => ResizeMode::Max,
         _ => {
+          // <w>x<h>形式 - 解像度の指定
           if pat_resolution.is_match(&arg) {
-            let res: Vec<u32> = arg.split('x').map(|x| x.parse().unwrap()).collect();
+            let res: Vec<u32> = arg.split('x').map(|xy| xy.parse().unwrap()).collect();
             resize_info.set_resoluton(Some((res[0], res[1])))?;
             ResizeMode::Custom
           } else {
