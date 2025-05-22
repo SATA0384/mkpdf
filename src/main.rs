@@ -23,12 +23,9 @@ fn main() -> Result<()> {
   let mut resize_info = ResizeInfo::new(ResizeMode::Original, None, None)?;
 
   // オプション解析と引数の取得
-  let mut args = match option_handling(&mut resize_info) {
-    Ok(args) => match args {
-      Some(args) => args,
-      None => return Ok(()),
-    },
-    Err(e) => return Err(e),
+  let mut args = match option_handling(&mut resize_info)? {
+    Some(args) => args,
+    None => return Ok(()),
   };
   dprintln!("args = {:?}", args);
   dprintln!("resize_info = {:#?}", &resize_info);
