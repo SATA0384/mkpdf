@@ -3,7 +3,7 @@ pub(crate) fn print_help() {
   print_version();
   print_usage();
 
-  println!("\nDescription: Create PDF file from multiple images.\n");
+  println!("\nDescription: Create a PDF file from multiple images.\n");
 
   println!("Supported formats:");
   println!("  AVIF, BMP, GIF, ICO, JPEG, PNG, TIFF, WebP,");
@@ -24,6 +24,8 @@ pub(crate) fn print_help() {
 
   println!("  --help    | -h ) Print this help message and exit.");
   println!("  --version | -v ) Print version and exit.");
+
+  println!("GitHub repository: https://github.com/SATA0384/mkpdf");
 }
 
 pub(crate) fn print_usage() {
