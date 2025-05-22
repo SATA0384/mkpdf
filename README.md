@@ -4,7 +4,6 @@
   [README: English](https://github.com/SATA0384/mkpdf/blob/master/README_en.md)
 
 ## 機能
-## 機能
   幅広い形式の画像ファイルを一括で読み込み、リサイズしてPDF出力することができます。<br>
   写真として保存している文書や学習ノートをPDF化したいときに便利です。<br>
   コマンドラインツールなので、スクリプトに組み込むのもいいかもしれません。<br>
