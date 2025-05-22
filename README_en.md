@@ -1,7 +1,7 @@
 # mkpdf
   The Command-line tool that can create a PDF file from multiple images
 
-  [README: 日本語](https://github.com/SATA0384/mkpdf/edit/master/README.md)
+  [README: 日本語](https://github.com/SATA0384/mkpdf/blob/master/README.md)
 
 ## Functionality
   Loads image files of various formats in bulk, resize, and outputs.<br>
