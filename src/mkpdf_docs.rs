@@ -25,7 +25,7 @@ pub(crate) fn print_help() {
   println!("  --help    | -h ) Print this help message and exit.");
   println!("  --version | -v ) Print version and exit.");
 
-  println!("GitHub repository: https://github.com/SATA0384/mkpdf");
+  println!("\nGitHub repository: https://github.com/SATA0384/mkpdf");
 }
 
 pub(crate) fn print_usage() {
